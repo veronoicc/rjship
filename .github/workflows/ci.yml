@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'v[0-9]+.[0-0]+.x'
+    paths:
+      # `README.md` is included in `src/lib.rs` as a doc comment,
+      # meaning any changes potentially affecting it's code running,
+      # should be validated..
+      - "README.md"
+      - "**.rs"
+      - "**.toml"
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:    
+  validate-pull:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
+          - 1.56.0 # MSRV
+    steps:
+    - uses: actions/checkout@v3
+    - name: Cargo Cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+          target/
+        key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ hashFiles('Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.toolchain }}-
+          ${{ runner.os }}-cargo-
+          ${{ runner.os }}-
+    - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }} && rustup component add clippy --toolchain ${{matrix.toolchain}}
+      # This library is designed on the stable branch, meaning the check should run on a stable version.
+    - name: Validate Formatting
+      if: matrix.toolchain == 'stable'
+      run: cargo fmt --check --verbose
+    - name: Validate Clippy
+      run: cargo clippy -- -D warnings --verbose
+    - name: Validate Tests
+      run: cargo test --verbose
