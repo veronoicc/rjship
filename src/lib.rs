@@ -24,3 +24,10 @@ pub enum RJSend<D, FD, Msg = String, ED = serde_json::Value> {
         data: Option<ED>,
     },
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ErrorFields<Msg, ED> {
+    pub message: Msg,
+    pub code: Option<serde_json::Number>,
+    pub data: Option<ED>,
+}
