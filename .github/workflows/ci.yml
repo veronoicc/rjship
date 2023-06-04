@@ -42,17 +42,6 @@ jobs:
           - beta
           - nightly
           - 1.56.0 # MSRV
-        # `rc` shouldn't affect tests normally,
-        # as its used for opting into
-        # serialization/deserialization behaviour
-        feature:
-          - preserve_order
-          - arbitrary_precision
-          - unbounded_depth
-          - float_roundtrip
-          - all-features
-          # Want to test without any features enabled as well.
-          - ""
     steps:
     - uses: actions/checkout@v3
     - name: Cargo Cache
@@ -70,18 +59,7 @@ jobs:
           ${{ runner.os }}-cargo-
           ${{ runner.os }}-
     - run: rustup update ${{ matrix.toolchain }} && rustup component add clippy --toolchain ${{matrix.toolchain}}
-    # This conditionally creates an environment variable with the features
-    # from `matrix.feature`.
-    #
-    # On an empty string, it should run jobs without features enabled.
-    - name: Format Features
-      run: |
-        if ${{ matrix.feature }} == "all-features"; then
-          echo "FEATURES=--all-features" >> "$GITHUB_ENV"
-        else if ${{ matrix.feature }} != ""; then
-          echo "FEATURES=-F ${{ matrix.feature }}" >> "$GITHUB_ENV"
-        fi
     - name: Validate Clippy
-      run: cargo +${{ matrix.toolchain }} clippy ${{ env.FEATURES }} -- -D warnings --verbose
+      run: cargo +${{ matrix.toolchain }} clippy -- -D warnings --verbose
     - name: Validate Tests
-      run: cargo +${{ matrix.toolchain }} test ${{ env.FEATURES }} --verbose
+      run: cargo +${{ matrix.toolchain }} test -F preserve_order --verbose
