@@ -62,4 +62,4 @@ jobs:
     - name: Validate Clippy
       run: cargo +${{ matrix.toolchain }} clippy -- -D warnings --verbose
     - name: Validate Tests
-      run: cargo +${{ matrix.toolchain }} test -F preserve_order --verbose
+      run: cargo +${{ matrix.toolchain }} test --feature preserve_order --verbose
