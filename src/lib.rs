@@ -33,3 +33,8 @@ pub struct ErrorFields<Msg, ED> {
     pub code: Option<serde_json::Number>,
     pub data: Option<ED>,
 }
+
+#[cfg(not(any(feature = "std", feature = "alloc")))]
+compile_error!(
+    "rjsend requires that either the `std` feature (default) or `alloc` feature is enabled"
+);
