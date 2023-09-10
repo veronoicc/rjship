@@ -1,19 +1,14 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-extern crate alloc;
-
 use core::fmt;
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::string::String;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "status")]
 #[serde(rename_all = "lowercase")]
-pub enum RJSend<D, FD, Msg = String, ED = serde_json::Value> {
+pub enum RJSend<D, FD, Msg = &'static str, ED = serde_json::Value> {
     Success {
         data: D,
     },
