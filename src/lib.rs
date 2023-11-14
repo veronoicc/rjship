@@ -1,16 +1,14 @@
-#![no_std]
-
-extern crate alloc;
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use core::fmt;
 
-use alloc::string::String;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "status")]
 #[serde(rename_all = "lowercase")]
-pub enum RJSend<D, FD, Msg = String, ED = serde_json::Value> {
+pub enum RJSend<D, FD, Msg = &'static str, ED = serde_json::Value> {
     Success {
         data: D,
     },
@@ -31,3 +29,8 @@ pub struct ErrorFields<Msg, ED> {
     pub code: Option<serde_json::Number>,
     pub data: Option<ED>,
 }
+
+#[cfg(not(any(feature = "std", feature = "alloc")))]
+compile_error!(
+    "rjsend requires that either the `std` feature (default) or `alloc` feature is enabled"
+);
