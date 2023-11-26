@@ -127,7 +127,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
             ),
         }
     }
-  
+
     #[inline]
     #[track_caller]
     pub fn unwrap_error(self) -> ErrorFields<Msg, ED>
