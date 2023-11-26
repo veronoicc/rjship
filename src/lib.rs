@@ -175,10 +175,16 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
     }
 
     #[inline]
+    #[allow(clippy::unwrap_or_default)]
     pub fn unwrap_or_default(self) -> D
     where
         D: Default,
     {
+        // NOTE: We need to add a linter exception here,
+        // because we are *not* using `std::option::Option`,
+        // or `std::result::Result` here,
+        // and actually *do* want to use `RJSend::unwrap_or_else` here,
+        // because we're implementing `RJSend::unwrap_or_default` here... xD
         self.unwrap_or_else(Default::default)
     }
 }
