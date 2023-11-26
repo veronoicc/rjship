@@ -70,6 +70,203 @@ impl<D, FD, ED> RJSend<D, FD, String, ED> {
     }
 }
 
+// Unwrapping methods
+impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+    #[inline]
+    #[track_caller]
+    pub fn unwrap(self) -> D
+    where
+        FD: fmt::Debug,
+        Msg: fmt::Debug,
+        ED: fmt::Debug,
+    {
+        match self {
+            Self::Success { data } => data,
+            Self::Fail { data } => {
+                unwrap_failed("called `RJSend::unwrap()` on a `Fail` value", &data)
+            }
+            Self::Error {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                "called `RJSend::unwrap()` on an `Error` value",
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    pub fn unwrap_fail(self) -> FD
+    where
+        D: fmt::Debug,
+        Msg: fmt::Debug,
+        ED: fmt::Debug,
+    {
+        match self {
+            Self::Fail { data } => data,
+            Self::Success { data } => {
+                unwrap_failed("called `RJSend::unwrap_fail()` on a `Success` value", &data)
+            }
+            Self::Error {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                "called `RJSend::unwrap_fail` on an `Error` value",
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
+        }
+    }
+  
+    #[inline]
+    #[track_caller]
+    pub fn unwrap_error(self) -> ErrorFields<Msg, ED>
+    where
+        D: fmt::Debug,
+        FD: fmt::Debug,
+    {
+        match self {
+            Self::Error {
+                message,
+                code,
+                data,
+            } => ErrorFields {
+                message,
+                code,
+                data,
+            },
+            Self::Success { data } => unwrap_failed(
+                "called `RJSend::unwrap_error()` on a `Success` value",
+                &data,
+            ),
+            Self::Fail { data } => {
+                unwrap_failed("called `RJSend::unwrap_error()` on a `Fail` value", &data)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn unwrap_or(self, default: D) -> D {
+        match self {
+            Self::Success { data } => data,
+            _ => default,
+        }
+    }
+
+    #[inline]
+    pub fn unwrap_or_else<F>(self, f: F) -> D
+    where
+        F: FnOnce() -> D,
+    {
+        match self {
+            Self::Success { data } => data,
+            _ => f(),
+        }
+    }
+
+    #[inline]
+    pub fn unwrap_or_default(self) -> D
+    where
+        D: Default,
+    {
+        self.unwrap_or_else(Default::default)
+    }
+}
+
+// Expect methods
+impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+    #[inline]
+    #[track_caller]
+    pub fn expect(self, msg: &str) -> D
+    where
+        FD: fmt::Debug,
+        Msg: fmt::Debug,
+        ED: fmt::Debug,
+    {
+        match self {
+            Self::Success { data } => data,
+            Self::Fail { data } => unwrap_failed(msg, &data),
+            Self::Error {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                msg,
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    pub fn expect_fail(self, msg: &str) -> FD
+    where
+        D: fmt::Debug,
+        Msg: fmt::Debug,
+        ED: fmt::Debug,
+    {
+        match self {
+            Self::Fail { data } => data,
+            Self::Success { data } => unwrap_failed(msg, &data),
+            Self::Error {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                msg,
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    pub fn expect_error(self, msg: &str) -> ErrorFields<Msg, ED>
+    where
+        D: fmt::Debug,
+        FD: fmt::Debug,
+    {
+        match self {
+            Self::Error {
+                message,
+                code,
+                data,
+            } => ErrorFields {
+                message,
+                code,
+                data,
+            },
+            Self::Success { data } => unwrap_failed(msg, &data),
+            Self::Fail { data } => unwrap_failed(msg, &data),
+        }
+    }
+}
+
+#[inline(never)]
+#[cold]
+#[track_caller]
+fn unwrap_failed(msg: &str, error: &dyn fmt::Debug) -> ! {
+    panic!("{}: {:?}", msg, error)
+}
+
 // Because `ErrorFields` is designed to map to `RJSend::Error`
 // as directly as possible, it might be useful to have
 // an implementation which maps directly back...
