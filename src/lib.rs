@@ -70,7 +70,7 @@ impl<D, FD, ED> RJSend<D, FD, String, ED> {
     }
 }
 
-// Because `ErrorFields` is designed to map to `RJSend::Error` 
+// Because `ErrorFields` is designed to map to `RJSend::Error`
 // as directly as possible, it might be useful to have
 // an implementation which maps directly back...
 //
