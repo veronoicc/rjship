@@ -175,7 +175,8 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
     }
 
     #[inline]
-    #[allow(clippy::unwrap_or_default)]
+    #[allow(renamed_and_removed_lints)]
+    #[allow(clippy::unwrap_or_else_default)]
     pub fn unwrap_or_default(self) -> D
     where
         D: Default,
@@ -185,6 +186,10 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
         // or `std::result::Result` here,
         // and actually *do* want to use `RJSend::unwrap_or_else` here,
         // because we're implementing `RJSend::unwrap_or_default` here... xD
+        //
+        // Also, `unwrap_or_else_default` was quite recently renamed,
+        // making using the old name, and adding an exception to allow it,
+        // the easiest solution, whilst retaining the current implementation...
         self.unwrap_or_else(Default::default)
     }
 }
