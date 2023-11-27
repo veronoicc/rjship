@@ -287,7 +287,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
             _ => None,
         }
     }
-    
+
     #[inline]
     pub fn fail(self) -> Option<FD> {
         match self {
@@ -295,7 +295,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
             _ => None,
         }
     }
-    
+
     #[inline]
     pub fn error(self) -> Option<ErrorFields<Msg, ED>> {
         match self {
