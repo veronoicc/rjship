@@ -278,6 +278,41 @@ fn unwrap_failed(msg: &str, error: &dyn fmt::Debug) -> ! {
     panic!("{}: {:?}", msg, error)
 }
 
+// Extractor methods
+impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+    #[inline]
+    pub fn success(self) -> Option<D> {
+        match self {
+            Self::Success { data } => Some(data),
+            _ => None,
+        }
+    }
+    
+    #[inline]
+    pub fn fail(self) -> Option<FD> {
+        match self {
+            Self::Fail { data } => Some(data),
+            _ => None,
+        }
+    }
+    
+    #[inline]
+    pub fn error(self) -> Option<ErrorFields<Msg, ED>> {
+        match self {
+            Self::Error {
+                message,
+                code,
+                data,
+            } => Some(ErrorFields {
+                message,
+                code,
+                data,
+            }),
+            _ => None,
+        }
+    }
+}
+
 // Because `ErrorFields` is designed to map to `RJSend::Error`
 // as directly as possible, it might be useful to have
 // an implementation which maps directly back...
