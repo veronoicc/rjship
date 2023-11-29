@@ -313,6 +313,62 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
     }
 }
 
+// Variant evaluation methods
+impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+    #[inline]
+    #[must_use]
+    pub fn is_success(&self) -> bool {
+        matches!(self, Self::Success { .. })
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_success_and<F: FnOnce(D) -> bool>(self, f: F) -> bool {
+        match self {
+            Self::Success { data } => f(data),
+            _ => false,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_fail(&self) -> bool {
+        matches!(self, Self::Fail { .. })
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_fail_and<F: FnOnce(FD) -> bool>(self, f: F) -> bool {
+        match self {
+            Self::Fail { data } => f(data),
+            _ => false,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error { .. })
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_error_and<F: FnOnce(ErrorFields<Msg, ED>) -> bool>(self, f: F) -> bool {
+        match self {
+            Self::Error {
+                message,
+                code,
+                data,
+            } => f(ErrorFields {
+                message,
+                code,
+                data,
+            }),
+            _ => false,
+        }
+    }
+}
+
 // Because `ErrorFields` is designed to map to `RJSend::Error`
 // as directly as possible, it might be useful to have
 // an implementation which maps directly back...
