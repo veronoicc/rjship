@@ -30,9 +30,47 @@ jobs:
     - uses: actions/checkout@v3
     # This library is designed on the stable branch, meaning the check should run on a stable version.
     - run: cargo +stable fmt --check --verbose
+  validate-missing-feats:
+    runs-on: ubuntu-latest
+    needs: validate-formatting
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Cargo Cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+          target/
+        key: ${{ runner.os}}-cargo-stable-${{ hashFiles('Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-stable-
+          ${{ runner.os }}-cargo-
+          ${{ runner.os }}-
+    - run: rustup update stable
+    # The way the project is set up, it shouldn't be able to compile
+    # if no features are enabled, so
+    # if we trap an error when executing the script,
+    # it's behaving correctly, and should exit successfully.
+    - name: Validate No Features
+      run: |
+        trap "exit 0" ERR
+        cargo check --no-default-features
+        exit 1
+    # Due to the fact The first script will exit when an error is thrown,
+    # running the check with `serde_json/alloc` enabled,
+    # we need to add a second one.
+    - name: Validate Serde Alloc No Features
+      run: |
+        trap "exit 0" ERR
+        cargo check --no-default-features --features serde_json/alloc
+        exit 1
   validate-pull:
     # Wont be run is formatting is invalid, saving on CI resources
-    needs: validate-formatting
+    needs: validate-missing-feats
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
     strategy:
@@ -63,3 +101,5 @@ jobs:
       run: cargo +${{ matrix.toolchain }} clippy -- -D warnings --verbose
     - name: Validate Tests
       run: cargo +${{ matrix.toolchain }} test --features preserve_order --verbose
+    - name: Validate No-Std Tests
+      run: cargo +${{ matrix.toolchain }} test --no-default-features --features "preserve_order alloc" --verbose
