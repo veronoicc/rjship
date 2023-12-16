@@ -10,25 +10,34 @@ use serde::{ser::SerializeStruct, Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "status")]
 #[serde(rename_all = "lowercase")]
-pub enum RJSend<D, FD, Msg = &'static str, ED = serde_json::Value> {
+pub enum RjShip<
+    D,
+    FMsg = &'static str,
+    FD = serde_json::Value,
+    EMsg = &'static str,
+    ED = serde_json::Value,
+> {
     Success {
         data: D,
     },
     Fail {
-        data: FD,
+        #[serde(bound(deserialize = "Msg: fmt::Display + Deserialize<'de>",))]
+        message: FMsg,
+        code: Option<serde_json::Number>,
+        data: Option<FD>,
     },
     Error {
         #[serde(bound(deserialize = "Msg: fmt::Display + Deserialize<'de>",))]
-        message: Msg,
+        message: EMsg,
         code: Option<serde_json::Number>,
         data: Option<ED>,
     },
 }
 
 // Constructors functions
-impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
-    pub const fn new_error(message: Msg) -> Self {
+    pub const fn new_error(message: EMsg) -> Self {
         Self::Error {
             message,
             code: None,
@@ -42,7 +51,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
             message,
             code,
             data,
-        }: ErrorFields<Msg, ED>,
+        }: ErrorFields<EMsg, ED>,
     ) -> Self {
         Self::Error {
             message,
@@ -54,7 +63,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
 // `std` dependant contructor functions
 #[cfg(feature = "std")]
-impl<D, FD, ED> RJSend<D, FD, String, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
     pub fn from_error(data: ED) -> Self
     where
@@ -71,20 +80,29 @@ impl<D, FD, ED> RJSend<D, FD, String, ED> {
 }
 
 // Unwrapping methods
-impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
     #[track_caller]
     pub fn unwrap(self) -> D
     where
         FD: fmt::Debug,
-        Msg: fmt::Debug,
+        FMsg: fmt::Debug,
         ED: fmt::Debug,
     {
         match self {
             Self::Success { data } => data,
-            Self::Fail { data } => {
-                unwrap_failed("called `RJSend::unwrap()` on a `Fail` value", &data)
-            }
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                "called `RJSend::unwrap()` on an `Fail` value",
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
             Self::Error {
                 message,
                 code,
@@ -102,14 +120,21 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[track_caller]
-    pub fn unwrap_fail(self) -> FD
+    pub fn unwrap_fail(self) -> ErrorFields<FMsg, FD>
     where
         D: fmt::Debug,
-        Msg: fmt::Debug,
         ED: fmt::Debug,
     {
         match self {
-            Self::Fail { data } => data,
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => ErrorFields {
+                message,
+                code,
+                data,
+            },
             Self::Success { data } => {
                 unwrap_failed("called `RJSend::unwrap_fail()` on a `Success` value", &data)
             }
@@ -130,7 +155,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[track_caller]
-    pub fn unwrap_error(self) -> ErrorFields<Msg, ED>
+    pub fn unwrap_error(self) -> ErrorFields<EMsg, ED>
     where
         D: fmt::Debug,
         FD: fmt::Debug,
@@ -149,9 +174,18 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
                 "called `RJSend::unwrap_error()` on a `Success` value",
                 &data,
             ),
-            Self::Fail { data } => {
-                unwrap_failed("called `RJSend::unwrap_error()` on a `Fail` value", &data)
-            }
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                "called `RJSend::unwrap_error()` on a `Fail` value",
+                &&ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
         }
     }
 
@@ -195,18 +229,30 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 }
 
 // Expect methods
-impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
     #[track_caller]
     pub fn expect(self, msg: &str) -> D
     where
+        FMsg: fmt::Debug,
         FD: fmt::Debug,
-        Msg: fmt::Debug,
+        EMsg: fmt::Debug,
         ED: fmt::Debug,
     {
         match self {
             Self::Success { data } => data,
-            Self::Fail { data } => unwrap_failed(msg, &data),
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                msg,
+                &&ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
             Self::Error {
                 message,
                 code,
@@ -224,14 +270,22 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[track_caller]
-    pub fn expect_fail(self, msg: &str) -> FD
+    pub fn expect_fail(self, msg: &str) -> ErrorFields<FMsg, FD>
     where
         D: fmt::Debug,
-        Msg: fmt::Debug,
+        EMsg: fmt::Debug,
         ED: fmt::Debug,
     {
         match self {
-            Self::Fail { data } => data,
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => ErrorFields {
+                message,
+                code,
+                data,
+            },
             Self::Success { data } => unwrap_failed(msg, &data),
             Self::Error {
                 message,
@@ -250,9 +304,10 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[track_caller]
-    pub fn expect_error(self, msg: &str) -> ErrorFields<Msg, ED>
+    pub fn expect_error(self, msg: &str) -> ErrorFields<EMsg, ED>
     where
         D: fmt::Debug,
+        FMsg: fmt::Debug,
         FD: fmt::Debug,
     {
         match self {
@@ -266,7 +321,18 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
                 data,
             },
             Self::Success { data } => unwrap_failed(msg, &data),
-            Self::Fail { data } => unwrap_failed(msg, &data),
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => unwrap_failed(
+                msg,
+                &ErrorFields {
+                    message,
+                    code,
+                    data,
+                },
+            ),
         }
     }
 }
@@ -279,7 +345,7 @@ fn unwrap_failed(msg: &str, error: &dyn fmt::Debug) -> ! {
 }
 
 // Extractor methods
-impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
     pub fn success(self) -> Option<D> {
         match self {
@@ -289,15 +355,23 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
     }
 
     #[inline]
-    pub fn fail(self) -> Option<FD> {
+    pub fn fail(self) -> Option<ErrorFields<FMsg, FD>> {
         match self {
-            Self::Fail { data } => Some(data),
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => Some(ErrorFields {
+                message,
+                code,
+                data,
+            }),
             _ => None,
         }
     }
 
     #[inline]
-    pub fn error(self) -> Option<ErrorFields<Msg, ED>> {
+    pub fn error(self) -> Option<ErrorFields<EMsg, ED>> {
         match self {
             Self::Error {
                 message,
@@ -314,7 +388,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 }
 
 // Variant evaluation methods
-impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
+impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     #[inline]
     #[must_use]
     pub fn is_success(&self) -> bool {
@@ -338,9 +412,17 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[must_use]
-    pub fn is_fail_and<F: FnOnce(FD) -> bool>(self, f: F) -> bool {
+    pub fn is_fail_and<F: FnOnce(ErrorFields<FMsg, FD>) -> bool>(self, f: F) -> bool {
         match self {
-            Self::Fail { data } => f(data),
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => f(ErrorFields {
+                message,
+                code,
+                data,
+            }),
             _ => false,
         }
     }
@@ -353,7 +435,7 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 
     #[inline]
     #[must_use]
-    pub fn is_error_and<F: FnOnce(ErrorFields<Msg, ED>) -> bool>(self, f: F) -> bool {
+    pub fn is_error_and<F: FnOnce(ErrorFields<EMsg, ED>) -> bool>(self, f: F) -> bool {
         match self {
             Self::Error {
                 message,
@@ -375,14 +457,14 @@ impl<D, FD, Msg, ED> RJSend<D, FD, Msg, ED> {
 //
 // This also means `ErrorFields` can be used as an ad hoc builder
 // for the variant as well...
-impl<D, FD, Msg, ED> From<ErrorFields<Msg, ED>> for RJSend<D, FD, Msg, ED> {
-    fn from(fields: ErrorFields<Msg, ED>) -> Self {
+impl<D, FMsg, FD, EMsg, ED> From<ErrorFields<EMsg, ED>> for RjShip<D, FMsg, FD, EMsg, ED> {
+    fn from(fields: ErrorFields<EMsg, ED>) -> Self {
         Self::from_error_fields(fields)
     }
 }
 
 #[cfg(feature = "std")]
-impl<D, FD, ED> From<ED> for RJSend<D, FD, String, ED>
+impl<D, FMsg, FD, EMsg, ED> From<ED> for RjShip<D, FMsg, FD, EMsg, ED>
 where
     ED: Error,
 {
@@ -394,7 +476,7 @@ where
 // Derived implementation falls back on some funky old tricks,
 // due to the version of Rust `serde` uses,
 // which I dislike, and would prefer to streamline.
-impl<D, FD, Msg, ED> Serialize for RJSend<D, FD, Msg, ED>
+impl<D, FD, Msg, ED> Serialize for RjShip<D, FD, Msg, ED>
 where
     D: Serialize,
     FD: Serialize,
@@ -407,7 +489,7 @@ where
     {
         match self {
             Self::Success { data } => {
-                let mut state = serializer.serialize_struct("RJSend", 2)?;
+                let mut state = serializer.serialize_struct("RJship", 2)?;
                 // JSend resresents the different response variants
                 // via the `"status"` field, which is why during serialization,
                 // we're serializing the name of the variant as a struct field
@@ -416,13 +498,41 @@ where
                 state.serialize_field("data", data)?;
                 state.end()
             }
-            Self::Fail { data } => {
-                let mut state = serializer.serialize_struct("RJSend", 2)?;
-                // Simlarly to above, we need to serialize
-                // the name of the variant as a struct field,
-                // to comply with the JSend standard...
+            // This is the variant this custom implementation
+            // pretty much exclusively exists for,
+            // because I hate the way `serde` has to handle
+            // the `skip_serializing_if` attribute...
+            Self::Fail {
+                message,
+                code,
+                data,
+            } => {
+                // Casting `bool` values as `usize` is kind of a dumb approach,
+                // but it's the most concise option in this case...
+                let some_count = code.is_some() as usize + data.is_some() as usize;
+                let mut state = serializer.serialize_struct("RJship", 2 + some_count)?;
+
                 state.serialize_field("status", "fail")?;
-                state.serialize_field("data", data)?;
+                state.serialize_field("message", message.as_ref())?;
+
+                match code {
+                    // We can extract the contents using patten matching,
+                    // rather than serializing the option directly in this case,
+                    // because we want to skip serializing
+                    // in the case of a `None` value,
+                    // not encode the `None` state.
+                    Some(code) => state.serialize_field("code", code)?,
+                    None => state.skip_field("code")?,
+                }
+
+                match data {
+                    // Similarly to above, we want to skip serialization
+                    // of this field in the case a value is `None`,
+                    // rather than encode that state...
+                    Some(data) => state.serialize_field("data", data)?,
+                    None => state.skip_field("data")?,
+                }
+
                 state.end()
             }
             // This is the variant this custom implementation
@@ -437,7 +547,7 @@ where
                 // Casting `bool` values as `usize` is kind of a dumb approach,
                 // but it's the most concise option in this case...
                 let some_count = code.is_some() as usize + data.is_some() as usize;
-                let mut state = serializer.serialize_struct("RJSend", 2 + some_count)?;
+                let mut state = serializer.serialize_struct("RJship", 2 + some_count)?;
 
                 state.serialize_field("status", "error")?;
                 state.serialize_field("message", message.as_ref())?;

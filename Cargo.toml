@@ -1,14 +1,14 @@
 [package]
-name = "rjsend"
+name = "rjship"
 version = "0.1.0"
 edition = "2021"
 description = "A collection of tools for working with the JSend specification, written in Rust."
-authors = ["Andy <andrew.dunn@ajja.org.uk>"]
+authors = ["Andy <andrew.dunn@ajja.org.uk>", "Vero <veronoicc@proton.me>"]
 license = "BSD-3-Clause"
-documentation = "https://docs.rs/rjsend/latest/rjsend"
-repository = "https://github.com/DunnAnDusted/rjsend"
+documentation = "https://docs.rs/rjship/latest/rjship"
+repository = "https://github.com/veronoicc/rjship"
 readme = "README.md"
-keywords = ["jsend", "encoding", "json", "serialization", "deserialization"]
+keywords = ["jship", "encoding", "json", "serialization", "deserialization"]
 categories = ["web-programming", "encoding", "no-std"]
 
 [package.metadata]
