@@ -21,13 +21,13 @@ pub enum RjShip<
         data: D,
     },
     Fail {
-        #[serde(bound(deserialize = "Msg: fmt::Display + Deserialize<'de>",))]
+        #[serde(bound(deserialize = "FMsg: fmt::Display + Deserialize<'de>",))]
         message: FMsg,
         code: Option<serde_json::Number>,
         data: Option<FD>,
     },
     Error {
-        #[serde(bound(deserialize = "Msg: fmt::Display + Deserialize<'de>",))]
+        #[serde(bound(deserialize = "EMsg: fmt::Display + Deserialize<'de>",))]
         message: EMsg,
         code: Option<serde_json::Number>,
         data: Option<ED>,
@@ -63,7 +63,7 @@ impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
 
 // `std` dependant contructor functions
 #[cfg(feature = "std")]
-impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
+impl<D, FMsg, FD, ED> RjShip<D, FMsg, FD, String, ED> {
     #[inline]
     pub fn from_error(data: ED) -> Self
     where
@@ -72,6 +72,23 @@ impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
         let message = data.to_string();
 
         Self::Error {
+            message,
+            code: None,
+            data: Some(data),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<D, FD, EMsg, ED> RjShip<D, String, FD, EMsg, ED> {
+    #[inline]
+    pub fn from_fail(data: FD) -> Self
+    where
+        FD: Error,
+    {
+        let message = data.to_string();
+
+        Self::Fail {
             message,
             code: None,
             data: Some(data),
@@ -88,6 +105,7 @@ impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
         FD: fmt::Debug,
         FMsg: fmt::Debug,
         ED: fmt::Debug,
+        EMsg: fmt::Debug,
     {
         match self {
             Self::Success { data } => data,
@@ -124,6 +142,7 @@ impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     where
         D: fmt::Debug,
         ED: fmt::Debug,
+        EMsg: fmt::Debug,
     {
         match self {
             Self::Fail {
@@ -159,6 +178,7 @@ impl<D, FMsg, FD, EMsg, ED> RjShip<D, FMsg, FD, EMsg, ED> {
     where
         D: fmt::Debug,
         FD: fmt::Debug,
+        FMsg: fmt::Debug,
     {
         match self {
             Self::Error {
@@ -464,7 +484,7 @@ impl<D, FMsg, FD, EMsg, ED> From<ErrorFields<EMsg, ED>> for RjShip<D, FMsg, FD, 
 }
 
 #[cfg(feature = "std")]
-impl<D, FMsg, FD, EMsg, ED> From<ED> for RjShip<D, FMsg, FD, EMsg, ED>
+impl<D, FMsg, FD, ED> From<ED> for RjShip<D, FMsg, FD, String, ED>
 where
     ED: Error,
 {
@@ -476,11 +496,12 @@ where
 // Derived implementation falls back on some funky old tricks,
 // due to the version of Rust `serde` uses,
 // which I dislike, and would prefer to streamline.
-impl<D, FD, Msg, ED> Serialize for RjShip<D, FD, Msg, ED>
+impl<D, FMsg, FD, EMsg, ED> Serialize for RjShip<D, FMsg, FD, EMsg, ED>
 where
     D: Serialize,
+    FMsg: AsRef<str>,
     FD: Serialize,
-    Msg: AsRef<str>,
+    EMsg: AsRef<str>,
     ED: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
