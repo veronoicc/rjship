@@ -228,7 +228,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 // Derived implementation falls back on some funky old tricks,
 // due to the version of Rust `serde` uses,
 // which I dislike, and would prefer to streamline.
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error
+impl<S, F, E> Serialize for RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error
 {
     fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
     where
