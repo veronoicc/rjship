@@ -1,9 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "std")]
-use std::error::Error;
-
 use serde::{ser::SerializeStruct, Serialize};
 
 #[derive(Debug, PartialEq)]
@@ -29,6 +26,13 @@ pub enum RjShip<
 
 // Constructors functions
 impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+    #[inline]
+    pub const fn new(data: S) -> Self {
+        Self::Success { 
+            data
+        }
+    }
+
     #[inline]
     pub const fn new_error(message: String) -> Self {
         Self::Error {
