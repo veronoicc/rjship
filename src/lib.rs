@@ -5,7 +5,7 @@
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
-pub enum RjShip<D, C, FD = (), ED = ()> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
+pub enum RjShip<D, C = u32, FD = (), ED = ()> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     Success {
         data: D,
     },
