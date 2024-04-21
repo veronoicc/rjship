@@ -1,6 +1,6 @@
 [package]
 name = "rjship"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "A collection of tools for working with the JSend specification, written in Rust."
 authors = ["Andy <andrew.dunn@ajja.org.uk>", "Vero <veronoicc@proton.me>"]
@@ -20,7 +20,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 serde = { version = "1.*", default-features = false, features = ["derive"] }
 serde_json = { version = "1.*", default-features = false }
-serde-error = "0.1.2"
+num-traits = "0.2"
 
 [features]
 default = ["std"]

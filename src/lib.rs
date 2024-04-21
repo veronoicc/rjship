@@ -1,33 +1,30 @@
+#![feature(min_specialization)] 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use serde::{ser::SerializeStruct, Serialize};
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
-#[derive(Debug, PartialEq)]
-pub enum RjShip<
-    S,
-    F,
-    E,
-> where S: Serialize, F: std::error::Error, E: std::error::Error {
+pub enum RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     Success {
-        data: S,
+        data: D,
     },
     Fail {
         message: String,
-        code: Option<serde_json::Number>,
-        data: Option<F>,
+        code: Option<C>,
+        data: Option<FD>,
     },
     Error {
         message: String,
-        code: Option<serde_json::Number>,
-        data: Option<E>,
+        code: Option<C>,
+        data: Option<ED>,
     },
 }
 
 // Constructors functions
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+impl<D, C, FD, ED> RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize  {
     #[inline]
-    pub const fn new(data: S) -> Self {
+    pub const fn new(data: D) -> Self {
         Self::Success { 
             data
         }
@@ -54,36 +51,32 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 
 // `std` dependant contructor functions
 #[cfg(feature = "std")]
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+impl<D, C, FD, ED> RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     #[inline]
-    pub fn from_error(data: E) -> Self
+    pub fn from_fail<F: ToString>(message: F, code: Option<C>, data: Option<FD>) -> Self
     {
-        let message = data.to_string();
-
-        Self::Error {
-            message,
-            code: None,
-            data: Some(data),
+        Self::Fail {
+            message: message.to_string(),
+            code,
+            data: data,
         }
     }
 
     #[inline]
-    pub fn from_fail(data: F) -> Self
+    pub fn from_error<E: ToString>(message: E, code: Option<C>, data: Option<ED>) -> Self
     {
-        let message = data.to_string();
-
-        Self::Fail {
-            message,
-            code: None,
-            data: Some(data),
+        Self::Error {
+            message: message.to_string(),
+            code,
+            data: data,
         }
     }
 }
 
 // Extractor methods
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+impl<D, C, FD, ED> RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     #[inline]
-    pub fn success(self) -> Option<S> {
+    pub fn success(self) -> Option<D> {
         match self {
             Self::Success { data } => Some(data),
             _ => None,
@@ -91,7 +84,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
     }
 
     #[inline]
-    pub fn fail(self) -> Option<ResultFields<String, F>> {
+    pub fn fail(self) -> Option<ResultFields<String, C, FD>> {
         match self {
             Self::Fail {
                 message,
@@ -107,7 +100,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
     }
 
     #[inline]
-    pub fn error(self) -> Option<ResultFields<String, E>> {
+    pub fn error(self) -> Option<ResultFields<String, C, ED>> {
         match self {
             Self::Error {
                 message,
@@ -124,7 +117,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 }
 
 // Variant evaluation methods
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+impl<D, C, FD, ED> RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     #[inline]
     #[must_use]
     pub fn is_success(&self) -> bool {
@@ -133,7 +126,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 
     #[inline]
     #[must_use]
-    pub fn is_success_and<Fn: FnOnce(S) -> bool>(self, f: Fn) -> bool {
+    pub fn is_success_and<F: FnOnce(D) -> bool>(self, f: F) -> bool {
         match self {
             Self::Success { data } => f(data),
             _ => false,
@@ -148,7 +141,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 
     #[inline]
     #[must_use]
-    pub fn is_fail_and<Fn: FnOnce(ResultFields<String, F>) -> bool>(self, f: Fn) -> bool {
+    pub fn is_fail_and<Fn: FnOnce(ResultFields<String, C, FD>) -> bool>(self, f: Fn) -> bool {
         match self {
             Self::Fail {
                 message,
@@ -171,7 +164,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 
     #[inline]
     #[must_use]
-    pub fn is_error_and<Fn: FnOnce(ResultFields<String, E>) -> bool>(self, f: Fn) -> bool {
+    pub fn is_error_and<F: FnOnce(ResultFields<String, C, ED>) -> bool>(self, f: F) -> bool {
         match self {
             Self::Error {
                 message,
@@ -193,14 +186,14 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
 //
 // This also means `ErrorFields` can be used as an ad hoc builder
 // for the variant as well...
-impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error {
+impl<D, C, FD, ED> RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize {
     #[inline]
     pub fn from_fail_fields(
         ResultFields {
             message,
             code,
             data,
-        }: ResultFields<String, F>,
+        }: ResultFields<String, C, FD>,
     ) -> Self {
         Self::Fail {
             message,
@@ -215,7 +208,7 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
             message,
             code,
             data,
-        }: ResultFields<String, E>,
+        }: ResultFields<String, C, ED>,
     ) -> Self {
         Self::Error {
             message,
@@ -225,14 +218,13 @@ impl<S, F, E> RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::
     }
 }
 
+
 // Derived implementation falls back on some funky old tricks,
 // due to the version of Rust `serde` uses,
 // which I dislike, and would prefer to streamline.
-impl<S, F, E> Serialize for RjShip<S, F, E> where S: Serialize, F: std::error::Error, E: std::error::Error
+impl<D, C, FD, ED> Serialize for RjShip<D, C, FD, ED> where D: Serialize, C: num_traits::PrimInt + Serialize, FD: Serialize, ED: Serialize
 {
-    fn serialize<Se>(&self, serializer: Se) -> Result<Se::Ok, Se::Error>
-    where
-        Se: serde::Serializer,
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer
     {
         match self {
             Self::Success { data } => {
@@ -276,7 +268,7 @@ impl<S, F, E> Serialize for RjShip<S, F, E> where S: Serialize, F: std::error::E
                     // Similarly to above, we want to skip serialization
                     // of this field in the case a value is `None`,
                     // rather than encode that state...
-                    Some(data) => state.serialize_field("data", &serde_error::Error::new(data))?,
+                    Some(data) => state.serialize_field("data", data)?,
                     None => state.skip_field("data")?,
                 }
 
@@ -313,7 +305,7 @@ impl<S, F, E> Serialize for RjShip<S, F, E> where S: Serialize, F: std::error::E
                     // Similarly to above, we want to skip serialization
                     // of this field in the case a value is `None`,
                     // rather than encode that state...
-                    Some(data) => state.serialize_field("data", &serde_error::Error::new(data))?,
+                    Some(data) => state.serialize_field("data", data)?,
                     None => state.skip_field("data")?,
                 }
 
@@ -324,16 +316,9 @@ impl<S, F, E> Serialize for RjShip<S, F, E> where S: Serialize, F: std::error::E
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ErrorFields<Msg, D> {
+pub struct ResultFields<Msg, C, D> {
     pub message: Msg,
-    pub code: Option<serde_json::Number>,
-    pub data: Option<D>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResultFields<Msg, D> {
-    pub message: Msg,
-    pub code: Option<serde_json::Number>,
+    pub code: Option<C>,
     pub data: Option<D>,
 }
 
