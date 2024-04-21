@@ -1,6 +1,6 @@
 [package]
 name = "rjship"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "A collection of tools for working with the JSend specification, written in Rust."
 authors = ["Andy <andrew.dunn@ajja.org.uk>", "Vero <veronoicc@proton.me>"]
